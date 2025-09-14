@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "E2EE Docs Overlay",
+  "version": "0.1.0",
+  "permissions": ["identity", "storage", "scripting"],
+  "host_permissions": [
+    "https://docs.google.com/*",
+    "https://www.googleapis.com/*",
+    "https://accounts.google.com/*"
+  ],
+  "oauth2": {
+    "client_id": "214416653002-5fhqvis75amo7r1e94rmoj6diehd3goa.apps.googleusercontent.com",
+    "scopes": ["https://www.googleapis.com/auth/drive.file", "profile", "email", "openid"]
+  },
+  "background": { "service_worker": "background.js", "type": "module" },
+  "content_scripts": [
+    {
+      "matches": ["https://docs.google.com/document/*"],
+      "js": ["content.js"],
+      "css": ["overlay.css"],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "crypto/aes.js",
+        "crypto/rsa.js"
+      ],
+      "matches": ["https://docs.google.com/*"]
+    }
+  ]
+}

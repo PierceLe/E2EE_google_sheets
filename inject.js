@@ -1,5 +1,5 @@
 (function () {
-  const PREFIX = "ENC:"; // marker giúp nhận biết đã mã hoá
+  const PREFIX = "ENC:";
   const ENABLE_KEY = "sheets_encrypt_enabled"; // lưu flag bật/tắt vào localStorage
 
   function encodePlaintext(str) {

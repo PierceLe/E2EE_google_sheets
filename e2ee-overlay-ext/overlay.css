@@ -1,0 +1,34 @@
+/* Full-viewport overlay above the Docs canvas */
+#e2ee-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: 999999; /* higher than Docs UI, may need tuning */
+  pointer-events: none; /* container doesn’t eat clicks; editor handles */
+}
+
+#e2ee-editor {
+  position: absolute;
+  top: 230px; /* push below Docs toolbar; you may compute dynamically */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  max-width: 720px; /* page-like width */
+  background: transparent;
+  outline: none;
+  pointer-events: auto; /* editor should receive input */
+  -webkit-user-modify: read-write-plaintext-only; /* reduce rich paste leaks */
+}
+
+/* Optional: a faint page rectangle to mimic Docs page width */
+#e2ee-page {
+  position: absolute;
+  top: 141px;
+  left: 48.6%;
+  transform: translateX(-50%);
+  width: 820px;
+  min-height: 900px;
+  border: 1px solid rgba(0,0,0,.06);
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+  pointer-events: none;
+}
