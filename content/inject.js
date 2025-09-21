@@ -49,8 +49,6 @@
   document.addEventListener(
     "keydown",
     function (e) {
-      console.log(isEnabled)
-      console.log(isEditorElement)
       if (!isEnabled()) return;
       if (e.key !== "Enter") return;
       const el = document.activeElement;

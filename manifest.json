@@ -1,16 +1,32 @@
 {
   "manifest_version": 3,
   "name": "Sheets Encrypt POC",
-  "version": "0.1",
+  "version": "0.2",
   "description": "POC: encrypt cell content (base64) on Enter/blur before Google Sheets saves it.",
   "permissions": [
     "storage",
     "scripting",
-    "activeTab"
+    "activeTab",
+    "identity"
   ],
   "host_permissions": [
     "https://docs.google.com/*"
   ],
+  "oauth2": {
+    "client_id": "455306255228-fh5tsislqrki3bqpa2khvn2enjtohlem.apps.googleusercontent.com",
+    "scopes": [
+      "https://www.googleapis.com/auth/userinfo.email",
+      "https://www.googleapis.com/auth/userinfo.profile", 
+      "https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets",
+      "openid",
+      "email",
+      "profile"
+    ]
+  },
+  "background": {
+    "service_worker": "background-script.js"
+  },
   "action": {
     "default_popup": "popup.html"
   },
@@ -23,7 +39,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["inject.js"],
+      "resources": [],
       "matches": ["*://docs.google.com/*"]
     }
   ]
