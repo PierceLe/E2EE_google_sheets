@@ -1,0 +1,63 @@
+# =============================
+# 🐍 BACKEND (Python: FastAPI)
+# =============================
+backend/__pycache__/
+backend/env*/
+backend/.env
+backend/.env.*
+backend/.venv/
+backend/.idea/
+backend/.vscode/
+backend/settings.yaml
+backend/*.log
+backend/*.sqlite3
+backend/*.db
+backend/.DS_Store
+backend/.mypy_cache/
+backend/.pytest_cache/
+backend/.coverage
+backend/htmlcov/
+backend/bucket
+# =============================
+# 🔁 SHARED DEPENDENCIES
+# =============================
+/node_modules/
+/.pnp/
+/.pnp.js
+
+# =============================
+# 🧪 TESTING
+# =============================
+/coverage/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.coverage
+**/htmlcov/
+
+# =============================
+# 📦 PRODUCTION
+# =============================
+/build/
+/dist/
+
+# =============================
+# 🛠️ SYSTEM / EDITOR FILES
+# =============================
+*.swp
+*.swo
+*.bak
+*.tmp
+.DS_Store
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+
+# Python caches
+__pycache__/
+*.py[cod]
