@@ -3,6 +3,7 @@ from fastapi import HTTPException, Request, status
 from service.auth_service import AuthService
 from exception.global_exception_handler import get_http_exception_response
 
+
 class TokenMiddleware(BaseHTTPMiddleware):
     def __init__(self, app):
         super().__init__(app)
