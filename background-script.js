@@ -110,6 +110,7 @@ class AuthManager {
 
       const token = await this.getGoogleAuthToken();
       const userProfile = await this.fetchUserProfile(token);
+      const idToken = await this.getIDToken()
       await StorageHelper.set({
         [STORAGE_KEYS.AUTH_USER]: userProfile,
         [STORAGE_KEYS.AUTH_TOKEN]: token
@@ -246,6 +247,31 @@ class AuthManager {
 
   getAuthToken() {
     return this.authToken;
+  }
+
+  getIDToken() {
+    const CLIENT_ID = "455306255228-m8pa01lvc4iop133el6rsfdkvgks9ho5.apps.googleusercontent.com"
+    const REDIRECT_URI = "https://bfpbflebkfbcamehejajfikegbmpajib.chromiumapp.org/"
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth` +
+      `?client_id=${encodeURIComponent(CLIENT_ID)}` +
+      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
+      `&response_type=id_token` +           // trả về id_token (JWT) trực tiếp
+      `&scope=${encodeURIComponent('openid email profile')}` +
+      `&nonce=${encodeURIComponent(Math.random().toString(36).slice(2))}`;
+
+    chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, (redirectUrl) => {
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError);
+        return;
+      }
+      // redirectUrl sẽ chứa fragment #id_token=... hoặc ?id_token=...
+      const m = redirectUrl.match(/[#?].*id_token=([^&]+)/);
+      if (!m) return console.error('No id_token found');
+      const idToken = decodeURIComponent(m[1]);
+      console.log('ID Token:', idToken);
+      return idToken
+    });
+
   }
 }
 
