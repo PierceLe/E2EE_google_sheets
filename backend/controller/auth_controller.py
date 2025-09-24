@@ -50,7 +50,8 @@ auth_router = APIRouter()
             }
         }
     },
-    tags=["🔐 Authentication"]
+    tags=["🔐 Authentication"],
+    security=[]  # No authentication required for login endpoint
 )
 def login_with_google(
     response: Response, 
