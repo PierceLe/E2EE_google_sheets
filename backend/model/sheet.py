@@ -1,6 +1,6 @@
 import uuid
 
-from sqlalchemy import Column, String, Char, ForeignKey, DateTime, text
+from sqlalchemy import Column, String, ForeignKey, DateTime, text
 from sqlalchemy.dialects.mysql import CHAR
 from database import Base
 

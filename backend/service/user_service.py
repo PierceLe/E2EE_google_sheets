@@ -1,5 +1,3 @@
-from repository.friend_draft_repository import FriendDraftRepository
-from repository.friend_repository import FriendRepository
 from repository.user_repository import UserRepository
 from dto.request.auth.user_create_request import UserCreateRequest
 from dto.request.auth.user_update_request import UserUpdateRequest
@@ -18,8 +16,6 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class UserService():
     def __init__(self):
         self.user_repository = UserRepository()
-        self.friend_repository = FriendRepository()
-        self.friend_draft_repository = FriendDraftRepository()
 
     def check_user_exist_by_email(self, email: str, only_verified=True):
         return self.user_repository.check_user_exist_by_email(
