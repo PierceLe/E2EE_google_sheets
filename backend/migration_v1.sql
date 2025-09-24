@@ -7,7 +7,7 @@ CREATE TABLE `user` (
    avatar_url             VARCHAR(500),
    pin                    TEXT,
    public_key             TEXT,
-   encrypted_private_key  TEXT,
+   encrypted_private_key  TEXT
 );
 
 
