@@ -68,18 +68,18 @@ class SheetService:
         # Check if user has access to the sheet
         user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(user_id, sheet_id)
         if not user_sheet:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         
         # Get sheet link
         sheet_link = self.sheet_repository.get_link_by_sheet_id(sheet_id)
         if not sheet_link:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
 
         # Get creator info
         with SessionLocal() as db:
             sheet = db.query(Sheet).filter(Sheet.sheet_id == sheet_id).first()
             if not sheet:
-                raise AppException(ErrorCode.ROOM_NOT_FOUND)
+                raise AppException(ErrorCode.SHEET_NOT_FOUND)
 
             creator = self.user_repository.get_user_by_user_id(sheet.creator_id)
 
@@ -173,7 +173,7 @@ class SheetService:
         # Check if current user has permission
         current_user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(current_user_id, sheet_id)
         if not current_user_sheet or current_user_sheet.role not in ["owner", "editor"]:
-            raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
+            raise AppException(ErrorCode.EDIT_SHEET_NOT_PERMISSION)
         
         # Validate input lengths
         if len(request.user_ids) != len(request.encrypted_sheet_keys):
@@ -201,7 +201,7 @@ class SheetService:
         # Check if current user is owner
         current_user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(current_user_id, sheet_id)
         if not current_user_sheet or current_user_sheet.role != "owner":
-            raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
+            raise AppException(ErrorCode.EDIT_SHEET_NOT_PERMISSION)
         
         # Don't allow owner to remove themselves
         user_ids_to_remove = [uid for uid in request.user_ids if uid != current_user_id]
@@ -216,14 +216,14 @@ class SheetService:
         # Check if user has access
         user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(user_id, sheet_id)
         if not user_sheet:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         
         # If user is owner, they cannot leave unless they transfer ownership first
         if user_sheet.role == "owner":
             # Check if there are other users in the sheet
             users_in_sheet = self.user_sheet_repository.get_user_in_sheet(sheet_id)
             if len(users_in_sheet) > 1:
-                raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)  # Owner must transfer ownership first
+                raise AppException(ErrorCode.EDIT_SHEET_NOT_PERMISSION)  # Owner must transfer ownership first
         
         # Remove user from sheet
         self.user_sheet_repository.delete_user_sheet_by_user_id_and_sheet_id(user_id, sheet_id)
@@ -235,7 +235,7 @@ class SheetService:
         # Check if user is owner
         user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(user_id, sheet_id)
         if not user_sheet or user_sheet.role != "owner":
-            raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
+            raise AppException(ErrorCode.EDIT_SHEET_NOT_PERMISSION)
         
         # Delete all user-sheet relationships
         self.user_sheet_repository.delete_user_sheet_by_sheet_id(sheet_id)
@@ -251,7 +251,7 @@ class SheetService:
         if current_user_id != target_user_id:
             current_user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(current_user_id, sheet_id)
             if not current_user_sheet or current_user_sheet.role != "owner":
-                raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
+                raise AppException(ErrorCode.EDIT_SHEET_NOT_PERMISSION)
         
         # Check if target user has access
         if not self.user_sheet_repository.check_exist_by_user_id_and_sheet_id(target_user_id, sheet_id):
@@ -275,7 +275,7 @@ class SheetService:
         """Get all users who have access to a sheet"""
         # Check if current user has access
         if not self.user_sheet_repository.check_exist_by_user_id_and_sheet_id(current_user_id, sheet_id):
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         
         users = self.user_sheet_repository.get_user_in_sheet(sheet_id)
         return [UserResponse.fromUserModel(user) for user in users]
@@ -284,7 +284,7 @@ class SheetService:
         """Get user's encrypted sheet key"""
         user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(user_id, sheet_id)
         if not user_sheet:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         
         return user_sheet.encrypted_sheet_key
 

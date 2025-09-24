@@ -60,7 +60,7 @@ class RoomService():
     def get_room_by_room_id(self, room_id: str) -> RoomResponse:
         room = self.room_repository.get_room_by_room_id(room_id)
         if not room:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         return RoomResponse(
             room_id=room.room_id,
             room_name=room.room_name,
@@ -76,7 +76,7 @@ class RoomService():
     def update_room(self, request: UpdateRoomRequest, room_id: str) -> RoomResponse:
         room: Room = self.room_repository.get_room_by_room_id(room_id)
         if not room:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         if request.room_name is not None:
             room.room_name = request.room_name
         if request.last_mess is not None:
@@ -101,7 +101,7 @@ class RoomService():
     def update_room_meta(self, room_id: str, update_room_request: UpdateRoomRequest, user_id: str):
         room = self.room_repository.get_room_by_room_id(room_id)
         if not room:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         if room.creator_id != user_id:
             raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
         room.room_name = update_room_request.room_name
@@ -169,7 +169,7 @@ class RoomService():
     def add_user_to_room(self, current_user_id: str, list_friend_user_id: list[str], room_id: str, list_friend_encrypted_group_key: list[str]):
         room = self.room_repository.get_room_by_room_id(room_id)
         if room is None:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         if not self.user_room_repository.check_exist_by_user_id_and_room_id(current_user_id, room_id):
             raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
         
@@ -184,7 +184,7 @@ class RoomService():
     def remove_user_from_room(self, current_user_id: str, list_user_id: list[str], room_id: str):
         room = self.room_repository.get_room_by_room_id(room_id)
         if room is None:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         if room.creator_id != current_user_id:
             raise AppException(ErrorCode.EDIT_ROOM_NOT_PERMISSION)
         list_user_id_need_delete = list(filter(lambda x: x != current_user_id, list_user_id))
@@ -194,20 +194,20 @@ class RoomService():
     def leave_room(self, user_id: str, room_id: str):
         room = self.room_repository.get_room_by_room_id(room_id)
         if room is None:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         if user_id != room.creator_id:
             self.user_room_repository.delete_user_room_by_user_id_and_room_id(user_id, room_id)
 
     def get_user_in_room(self, room_id: str):
         if not self.room_repository.check_exist_room_by_room_id(room_id):
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         users = self.user_room_repository.get_user_in_room(room_id)
         return [UserResponse.fromUserModel(user) for user in users]
 
     def delete_room(self, user_id: str, room_id:str):
         room = self.room_repository.get_room_by_room_id(room_id)
         if room is None:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         if room.room_type == E_Room_Type.MANY:
             if room.creator_id == user_id:
                 self.room_repository.delete_room_by_id(room_id)
@@ -329,7 +329,7 @@ class RoomService():
     def get_encrypted_group_key_by_room_id(self, user_id: str, room_id: str) -> str:
         user_room_db = self.user_room_repository.get_user_room_by_user_id_and_room_id(user_id, room_id)
         if user_room_db is None:
-            raise AppException(ErrorCode.ROOM_NOT_FOUND)
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
         return user_room_db.encrypted_group_key
 
     def get_room_one_one(self, current_user_id: str, user_id: str) -> Room:

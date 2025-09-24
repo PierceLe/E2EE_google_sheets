@@ -22,8 +22,8 @@ class ErrorCode(Enum):
     NOT_PERMISSION = (9998, "Not permission")
     UNCATEGORIZED_EXCEPTION = (9999, "An uncategorized error occurred")
 
-    ROOM_NOT_FOUND = (2001, "Room not found")
-    EDIT_ROOM_NOT_PERMISSION = (2002, "Edit room not permission")
+    SHEET_NOT_FOUND = (2001, "Sheet not found")
+    EDIT_SHEET_NOT_PERMISSION = (2002, "Edit sheet not permission")
     
     INVALID_TIME_RANGE = (3001, "Invalid time range: start time must be before end time")
 
