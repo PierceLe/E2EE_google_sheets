@@ -23,6 +23,6 @@ class UserSheet(Base):
         nullable=False,
         server_default="viewer"
     )
-    encrypted_sheet_key = Column(Text, nullable=True)
+    encrypted_sheet_key = Column(Text, nullable=False)
     is_favorite = Column(Boolean, server_default="false", nullable=False)
     last_accessed_at = Column(DateTime, nullable=True)

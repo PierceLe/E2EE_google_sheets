@@ -5,11 +5,7 @@ from fastapi import FastAPI, HTTPException, Depends, Request
 from controller.auth_controller import auth_router
 from controller.user_controller import user_router
 from controller.room_controller import room_router
-from controller.friend_controller import friend_router
-from controller.chat_controller import chat_router
-from controller.file_controller import file_router
-from controller.task_controller import task_router
-from controller.timetable_controller import timetable_router
+from controller.sheet_controller import sheet_router
 from exception.app_exception import AppException
 from exception.global_exception_handler import app_exception_handler, http_exception_handler
 from middleware.token_middleware import TokenMiddleware
@@ -44,11 +40,7 @@ app.add_middleware(CORSMiddleware,
 app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(user_router, prefix="/api/user", tags=["User"])
 app.include_router(room_router, prefix="/api/room", tags=["Room"])
-app.include_router(friend_router, prefix="/api/friend", tags=["Friend"])
-app.include_router(chat_router, prefix="/api/chat", tags=["Chat WebSocket"])
-app.include_router(task_router, prefix="/api/task", tags=["Task"])
-app.include_router(file_router, prefix="/api/file", tags=["File"])
-app.include_router(timetable_router, prefix="/api/timetable", tags=["Timetable"])
+app.include_router(sheet_router, prefix="/api/sheet", tags=["Sheet"])
 
 app.mount("/api/bucket", StaticFiles(directory="bucket"), name="bucket")
 
