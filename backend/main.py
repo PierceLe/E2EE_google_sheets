@@ -2,6 +2,7 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 import os
 from fastapi import FastAPI, HTTPException, Depends, Request
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials, APIKeyCookie
 from controller.auth_controller import auth_router
 from controller.user_controller import user_router
 from controller.sheet_controller import sheet_router
@@ -42,6 +43,11 @@ app = FastAPI(
     3. **Sheet Creation**: Create encrypted sheets with member access
     4. **Collaboration**: Add/remove users with specific roles
     5. **Data Access**: Decrypt and access sheet data securely
+
+    ### 🔑 Authentication Methods:
+    - **Cookie Authentication**: Use access_token cookie (preferred for browser)
+    - **Bearer Token**: Use Authorization header with JWT token
+    - **Testing**: Use the 🔒 buttons in Swagger UI to authenticate
     """,
     version="1.0.0",
     contact={
@@ -63,6 +69,47 @@ app = FastAPI(
     openapi_url="/openapi.json"
 )
 
+# Define Security Schemes for Swagger UI
+from fastapi.openapi.utils import get_openapi
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = get_openapi(
+        title=app.title,
+        version=app.version,
+        description=app.description,
+        routes=app.routes,
+    )
+
+    # Add security schemes
+    openapi_schema["components"]["securitySchemes"] = {
+        "CookieAuth": {
+            "type": "apiKey",
+            "in": "cookie",
+            "name": "access_token",
+            "description": "JWT token stored in HTTP-only cookie. Get this token from /api/login/google endpoint."
+        },
+        "BearerAuth": {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "JWT token in Authorization header. Format: 'Bearer <token>'"
+        }
+    }
+
+    # Add global security requirement (optional - can be overridden per endpoint)
+    openapi_schema["security"] = [
+        {"CookieAuth": []},
+        {"BearerAuth": []}
+    ]
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
+
+app.openapi = custom_openapi
+
 # Add Exception Handler
 app.add_exception_handler(AppException, app_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
@@ -74,18 +121,19 @@ app.add_middleware(TokenMiddleware,)
 # Add cors
 origins = [
     "http://localhost",
-    "http://localhost:3000"
+    "http://localhost:3000",
+    "*"
 ]
-app.add_middleware(CORSMiddleware, 
-    allow_origins=origins,  
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"])
+app.add_middleware(CORSMiddleware,
+                   allow_origins=origins,
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"])
 
 # Add Router
 app.include_router(
-    auth_router, 
-    prefix="/api", 
+    auth_router,
+    prefix="/api",
     tags=["🔐 Authentication"],
     responses={
         401: {"description": "Authentication failed"},
@@ -93,8 +141,8 @@ app.include_router(
     }
 )
 app.include_router(
-    user_router, 
-    prefix="/api/user", 
+    user_router,
+    prefix="/api/user",
     tags=["👤 User Management"],
     responses={
         401: {"description": "Unauthorized access"},
@@ -102,8 +150,8 @@ app.include_router(
     }
 )
 app.include_router(
-    sheet_router, 
-    prefix="/api/sheet", 
+    sheet_router,
+    prefix="/api/sheet",
     tags=["📊 Sheet Management"],
     responses={
         401: {"description": "Unauthorized access"},
