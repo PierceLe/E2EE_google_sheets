@@ -75,14 +75,12 @@ from fastapi.openapi.utils import get_openapi
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-    
     openapi_schema = get_openapi(
         title=app.title,
         version=app.version,
         description=app.description,
         routes=app.routes,
     )
-    
     # Add security schemes
     openapi_schema["components"]["securitySchemes"] = {
         "CookieAuth": {
@@ -98,13 +96,11 @@ def custom_openapi():
             "description": "JWT token in Authorization header. Format: 'Bearer <token>'"
         }
     }
-    
     # Add global security requirement (optional - can be overridden per endpoint)
     openapi_schema["security"] = [
         {"CookieAuth": []},
         {"BearerAuth": []}
     ]
-    
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
@@ -124,16 +120,16 @@ origins = [
     "http://localhost:3000",
     "*"
 ]
-app.add_middleware(CORSMiddleware, 
-    allow_origins=origins,  
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"])
+app.add_middleware(CORSMiddleware,
+                   allow_origins=origins,
+                   allow_credentials=True,
+                   allow_methods=["*"],
+                   allow_headers=["*"])
 
 # Add Router
 app.include_router(
-    auth_router, 
-    prefix="/api", 
+    auth_router,
+    prefix="/api",
     tags=["🔐 Authentication"],
     responses={
         401: {"description": "Authentication failed"},
@@ -141,8 +137,8 @@ app.include_router(
     }
 )
 app.include_router(
-    user_router, 
-    prefix="/api/user", 
+    user_router,
+    prefix="/api/user",
     tags=["👤 User Management"],
     responses={
         401: {"description": "Unauthorized access"},
@@ -150,8 +146,8 @@ app.include_router(
     }
 )
 app.include_router(
-    sheet_router, 
-    prefix="/api/sheet", 
+    sheet_router,
+    prefix="/api/sheet",
     tags=["📊 Sheet Management"],
     responses={
         401: {"description": "Unauthorized access"},
