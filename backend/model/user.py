@@ -1,7 +1,6 @@
 import uuid
-from sqlalchemy import Column, String, DateTime, Enum as SqlEnum, Boolean, Text
+from sqlalchemy import Column, String, Text
 from database import Base
-from enums.enum_login_method import E_Login_Method
 
 class User(Base):
     __tablename__ = "user"
