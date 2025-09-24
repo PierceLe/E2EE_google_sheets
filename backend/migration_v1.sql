@@ -14,7 +14,7 @@ CREATE TABLE `user` (
 -- SHEETS
 CREATE TABLE sheet (
    sheet_id     VARCHAR(36)  NOT NULL PRIMARY KEY,
-   link         VARCHAR(1000) NOT NULL
+   link         VARCHAR(1000) NOT NULL,
    creator_id   VARCHAR(36)  NOT NULL,
    created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
    FOREIGN KEY (creator_id) REFERENCES `user`(user_id)
