@@ -35,18 +35,16 @@ class AuthService():
         try:
             idinfo = id_token.verify_oauth2_token(token, Request(), app_config["GOOGLE_AUTHENTICATION"]["CLIENT_ID"])
             email = idinfo["email"]
-            name = idinfo.get("name")
             first_name = idinfo.get("given_name")
             last_name = idinfo.get("family_name")
             avatar_url = idinfo.get("picture")
             
-            user = self.user_service.get_user_by_email(email, get_full_info=True)
+            user = self.user_service.get_user_by_email(email)
             if user:
                 return user
 
             new_user = self.user_service.create_user_google(email=email, first_name=first_name,
                             last_name=last_name, avatar_url=avatar_url)
-
             return new_user
         except ValueError as e:
             print(e)

@@ -34,8 +34,3 @@ async def restore_private_key(request: Restore_Private_Key_Request,
 async def get_user_by_email(email: str, user_service: UserService = Depends(UserService)):
     user = user_service.get_user_by_email(email)
     return SuccessResponse(result=user)
-
-@user_router.get("/query-email")
-async def get_user_by_email(email: str, current_user=Depends(get_current_user), user_service: UserService = Depends(UserService)):
-    users = user_service.get_user_query_email_and_not_in_list(current_user.user_id, email)
-    return SuccessResponse(result=users)

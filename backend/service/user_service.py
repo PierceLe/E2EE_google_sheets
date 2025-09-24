@@ -34,32 +34,22 @@ class UserService():
             public_key=user.public_key
         )
 
-    def get_user(self, user_id: str, get_full_info: bool = False) -> Union[UserResponse, UserFullResponse]:
+    def get_user(self, user_id: str) -> UserFullResponse:
         user = self.user_repository.get_user_by_id(user_id)
-
         if not user:
             return None
-        
-        if get_full_info:
-            return UserFullResponse.fromUserModel(user)
-        else:
-            return UserResponse.fromUserModel(user)
+        return UserFullResponse.fromUserModel(user)
+
 
     def get_user_by_email(
             self,
-            email: str,
-            get_full_info: bool = False) -> Union[UserResponse, UserFullResponse]:
+            email: str) -> UserFullResponse:
         user = self.user_repository.get_user_by_email(
             email=email)
         if not user:
             return None
-        if get_full_info:
-            return UserFullResponse.fromUserModel(user)
+        return UserFullResponse.fromUserModel(user)
 
-    def delete_user_by_email(self, email: str):
-        return self.user_repository.delete_user_by_email(email)
-
-    
     def create_pin(self, user_id: str, pin: str, public_key: str, encrypted_private_key: str):
         pin_hashed = pwd_context.hash(pin)
         return self.user_repository.create_pin(user_id, pin_hashed, public_key, encrypted_private_key)
