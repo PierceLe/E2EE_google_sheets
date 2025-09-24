@@ -4,7 +4,6 @@ import os
 from fastapi import FastAPI, HTTPException, Depends, Request
 from controller.auth_controller import auth_router
 from controller.user_controller import user_router
-from controller.room_controller import room_router
 from controller.sheet_controller import sheet_router
 from exception.app_exception import AppException
 from exception.global_exception_handler import app_exception_handler, http_exception_handler
@@ -39,7 +38,6 @@ app.add_middleware(CORSMiddleware,
 # Add Router
 app.include_router(auth_router, prefix="/api", tags=["Auth"])
 app.include_router(user_router, prefix="/api/user", tags=["User"])
-app.include_router(room_router, prefix="/api/room", tags=["Room"])
 app.include_router(sheet_router, prefix="/api/sheet", tags=["Sheet"])
 
 app.mount("/api/bucket", StaticFiles(directory="bucket"), name="bucket")
