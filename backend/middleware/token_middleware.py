@@ -31,6 +31,7 @@ class TokenMiddleware(BaseHTTPMiddleware):
             # Store the decoded token in request state
             request.state.user = result
         except Exception as e:
+            print("error: ", e)
             return get_http_exception_response(HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"))
 
         # Process the request further

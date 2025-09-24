@@ -79,7 +79,6 @@ async def get_user(user_id: str, user_service: UserService = Depends(UserService
     - Account creation date
     """,
     response_description="Current user's complete profile information",
-    security=[{"CookieAuth": []}, {"BearerAuth": []}]
 )
 async def get_me(current_user=Depends(get_current_user), user_service: UserService = Depends(UserService)):
     """
