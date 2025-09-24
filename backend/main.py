@@ -14,7 +14,54 @@ from fastapi.middleware.cors import CORSMiddleware
 if not os.path.exists("bucket"):
     os.makedirs("bucket")
 
-app = FastAPI()
+app = FastAPI(
+    title="E2EE Google Sheets API",
+    description="""
+    ## End-to-End Encrypted Google Sheets API
+
+    This API provides secure, end-to-end encrypted access to Google Sheets with advanced user management and access control.
+
+    ### Features:
+    * 🔐 **End-to-End Encryption**: All sheet data is encrypted before storage
+    * 🔑 **RSA Key Management**: Secure key generation and management
+    * 👥 **User Access Control**: Fine-grained permissions (owner, editor, viewer)
+    * 🔒 **PIN Protection**: Additional security layer with PIN-based access
+    * 📊 **Sheet Management**: Create, share, and collaborate on encrypted sheets
+    * 🔍 **Advanced Filtering**: Search and filter sheets by various criteria
+
+    ### Security Model:
+    - User authentication via Google OAuth2
+    - Client-side RSA key pair generation
+    - AES sheet encryption with RSA-encrypted keys
+    - JWT-based session management
+    - PIN-based private key protection
+
+    ### API Workflow:
+    1. **Authentication**: Login with Google OAuth2 token
+    2. **Key Setup**: Generate RSA keys and set PIN
+    3. **Sheet Creation**: Create encrypted sheets with member access
+    4. **Collaboration**: Add/remove users with specific roles
+    5. **Data Access**: Decrypt and access sheet data securely
+    """,
+    version="1.0.0",
+    contact={
+        "name": "API Support",
+        "email": "support@example.com",
+    },
+    license_info={
+        "name": "MIT",
+        "url": "https://opensource.org/licenses/MIT",
+    },
+    servers=[
+        {
+            "url": "http://localhost:9990",
+            "description": "Development server"
+        }
+    ],
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
+)
 
 # Add Exception Handler
 app.add_exception_handler(AppException, app_exception_handler)
@@ -36,9 +83,34 @@ app.add_middleware(CORSMiddleware,
     allow_headers=["*"])
 
 # Add Router
-app.include_router(auth_router, prefix="/api", tags=["Auth"])
-app.include_router(user_router, prefix="/api/user", tags=["User"])
-app.include_router(sheet_router, prefix="/api/sheet", tags=["Sheet"])
+app.include_router(
+    auth_router, 
+    prefix="/api", 
+    tags=["🔐 Authentication"],
+    responses={
+        401: {"description": "Authentication failed"},
+        400: {"description": "Invalid request data"}
+    }
+)
+app.include_router(
+    user_router, 
+    prefix="/api/user", 
+    tags=["👤 User Management"],
+    responses={
+        401: {"description": "Unauthorized access"},
+        404: {"description": "User not found"}
+    }
+)
+app.include_router(
+    sheet_router, 
+    prefix="/api/sheet", 
+    tags=["📊 Sheet Management"],
+    responses={
+        401: {"description": "Unauthorized access"},
+        403: {"description": "Insufficient permissions"},
+        404: {"description": "Sheet not found"}
+    }
+)
 
 app.mount("/api/bucket", StaticFiles(directory="bucket"), name="bucket")
 

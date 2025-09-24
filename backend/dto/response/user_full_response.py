@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from enums.enum_login_method import E_Login_Method
 from model.user import User
 
 # Get Full Info of user (include use_2fa_login and two_factor_secret)
