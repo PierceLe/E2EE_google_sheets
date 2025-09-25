@@ -17,7 +17,7 @@ class ErrorResponse(BaseResponse):
     )
 
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "code": 400,
                 "error_message": "Invalid request parameters"

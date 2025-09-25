@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Response, Request, Query
+from fastapi import APIRouter, HTTPException, Depends, Response
 from dto.response.success_response import SuccessResponse
 from dto.request.auth.google_login_request import GoogleLoginRequest
 from service.auth_service import AuthService
@@ -84,7 +84,7 @@ def login_with_google(
             value=f"{access_token}",
             httponly=True,
             secure=True,
-            samesite='Lax')
+            samesite='lax')
 
         return SuccessResponse(result=access_token)
 

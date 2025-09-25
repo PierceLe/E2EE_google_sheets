@@ -250,7 +250,7 @@ class AuthManager {
   }
 
   getIDToken() {
-    const CLIENT_ID = "455306255228-fh5tsislqrki3bqpa2khvn2enjtohlem.apps.googleusercontent.com"
+    const CLIENT_ID = "455306255228-m8pa01lvc4iop133el6rsfdkvgks9ho5.apps.googleusercontent.com"
     const REDIRECT_URI = "https://bfpbflebkfbcamehejajfikegbmpajib.chromiumapp.org/"
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth` +
       `?client_id=${encodeURIComponent(CLIENT_ID)}` +
