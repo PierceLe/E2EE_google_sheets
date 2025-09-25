@@ -62,7 +62,7 @@ class AuthService():
         except JWTError:
             raise AppException(ErrorCode.UNAUTHORIZED)
 
-        user = self.user_service.get_user_by_email(email, get_use_2fa_login=True)
+        user = self.user_service.get_user_by_email(email)
         if user is None:
             raise AppException(ErrorCode.UNAUTHORIZED)
         return user
