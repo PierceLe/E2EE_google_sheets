@@ -37,6 +37,11 @@ const GOOGLE_APIS = {
   DRIVE_FILES: 'https://www.googleapis.com/drive/v3/files',
   SHEETS_API: 'https://sheets.googleapis.com/v4/spreadsheets'
 };
+// Lấy manifest
+const manifest = chrome.runtime.getManifest();
+// Lấy client_id trong manifest
+const CLIENT_ID = manifest.oauth2.client_id;
+const REDIRECT_URI = "https://bfpbflebkfbcamehejajfikegbmpajib.chromiumapp.org/"
 
 class Logger {
   static log(component, message, data = null) {
@@ -250,8 +255,6 @@ class AuthManager {
   }
 
   getIDToken() {
-    const CLIENT_ID = "455306255228-fh5tsislqrki3bqpa2khvn2enjtohlem.apps.googleusercontent.com"
-    const REDIRECT_URI = "https://bfpbflebkfbcamehejajfikegbmpajib.chromiumapp.org/"
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth` +
       `?client_id=${encodeURIComponent(CLIENT_ID)}` +
       `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
