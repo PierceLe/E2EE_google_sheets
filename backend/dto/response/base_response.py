@@ -13,7 +13,7 @@ class BaseResponse(BaseModel):
 
     class Config:
         from_attributes = True  # To support conversion from ORM models
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "code": 0
             }
