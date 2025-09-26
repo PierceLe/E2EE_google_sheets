@@ -5,7 +5,6 @@ class UserResponse(BaseModel):
     user_id: str
 
     email: str
-    # password: str 
     first_name: str
     last_name: str
     avatar_url: str
