@@ -62,10 +62,8 @@ class AuthService():
             response = requests.get(
                 f"https://www.googleapis.com/oauth2/v1/tokeninfo?access_token={access_token}"
             )
-            
             if response.status_code != 200:
                 raise AppException(ErrorCode.INVALID_GOOGLE_TOKEN)
-            
             token_info = response.json()
             
             # Check if token is for our application
