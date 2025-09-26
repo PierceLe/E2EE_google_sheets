@@ -13,9 +13,7 @@ class TokenMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS":
             return await call_next(request)
         # Ignore token check for specific APIs
-        WHITE_LIST_API = ["/api/login", "/api/logout", "/api/signup", "/api/verify-email-signup", 
-                "/api/forgot-password", "/api/reset-password", "/api/check-2fa", 
-                "/api/login/google", "/test", "/docs", "/openapi.json"]
+        WHITE_LIST_API = ["/api/login/google", "/test", "/docs", "/openapi.json"]
 
         if request.url.path in WHITE_LIST_API:
             response = await call_next(request)
@@ -23,6 +21,11 @@ class TokenMiddleware(BaseHTTPMiddleware):
         
         # Get the token from cookies
         token = request.cookies.get("access_token")
+        if not token:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ", 1)[1].strip()
+
         if not token:
             return get_http_exception_response(HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token missing"))
 
