@@ -17,10 +17,12 @@
     READ_FROM_DRIVE: 'READ_FROM_DRIVE',
 
     // Sheets messages
-    SHEET_DETECTED: 'SHEET_DETECTED',
-    CELL_CHANGED: 'CELL_CHANGED',
+    // SHEET_DETECTED: 'SHEET_DETECTED',
+    // CELL_CHANGED: 'CELL_CHANGED',
+    GET_USER_ME_INFO: 'GET_USER_ME_INFO',
     GET_SHEET_INFO: 'GET_SHEET_INFO',
     CREATE_ENCRYPTED_SHEET: 'CREATE_ENCRYPTED_SHEET',
+    CREATE_PIN: 'CREATE_PIN',
   };
 
   class AuthGuard {
@@ -734,9 +736,10 @@
     }
   }
   class MessageHelper {
-    static async sendToBackground(message) {
+    static async sendToBackground(message, callback) {
       return new Promise((resolve, reject) => {
         chrome.runtime.sendMessage(message, (response) => {
+          if (callback) callback(response)
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
           } else {
@@ -762,11 +765,12 @@
   class OverlayManager {
     constructor() {
       this.overlay = null;
+      this.sheetId = window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
     }
     showOverlay(state) {
       if (this.overlay) {
         // Update existing overlay instead of creating new one
-        this.updateAuthOverlay(state);
+        this.updateContentOverlay(state);
         return;
       }
 
@@ -808,27 +812,18 @@
       const content = this.overlay.querySelector('.auth-content');
       if (!content) return;
 
-      switch (state) {
-        // case 'login':
-        //   content.innerHTML = this.getLoginContentHTML();
-        //   this.setupAuthOverlayEvents();
-        //   break;
-
-        // case 'loading':
-        //   content.innerHTML = this.getLoadingContentHTML(message);
-        //   break;
-
-        // case 'error':
-        //   content.innerHTML = this.getErrorContentHTML(message);
-        //   break;
-      }
+      content.innerHTML = this.getContentHTML(state);
+      this.setupOverlayEvents();
+      setTimeout(() => {
+        this.overlay.classList.add('visible');
+      }, 100);
     }
 
     // HTML TEMPLATES
     getOverlayHTML(state) {
       return `
         <style>
-          #e2ee-auth-overlay {
+          #e2ee-overlay {
             position: fixed;
             top: 0;
             left: 0;
@@ -845,11 +840,11 @@
             transition: all 0.3s ease;
           }
 
-          #e2ee-auth-overlay.visible {
+          #e2ee-overlay.visible {
             opacity: 1;
           }
 
-          #e2ee-auth-overlay.hiding {
+          #e2ee-overlay.hiding {
             opacity: 0;
             transform: scale(0.95);
           }
@@ -867,7 +862,7 @@
             transition: transform 0.3s ease;
           }
 
-          #e2ee-auth-overlay.visible .auth-modal {
+          #e2ee-overlay.visible .auth-modal {
             transform: scale(1);
           }
 
@@ -1061,7 +1056,36 @@
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
               </svg>
-              Encrypt Data.
+              Encrypt Data
+            </button>
+          `
+        case "create-pin":
+          return `
+            <style>
+              .pin-input {
+                font-size: 20px;
+                padding: 8px 12px;
+                width: 160px;
+                letter-spacing: 8px;
+                text-align: center;
+                border: 1px solid #ccc;
+                border-radius: 6px;
+                margin-bottom: 15px;
+              }
+            </style>
+            <p class="auth-description">
+              You have to create a PIN to use end-to-end encryption. Your PIN password must be exactly 6 digits.
+            </p>
+            <input id="pin" class="pin-input" inputmode="numeric" autocomplete="one-time-code"
+              maxlength="6" type="password" placeholder="Enter 6 digits PIN" />
+            <button id="create-pin-btn" class="auth-button">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              </svg>
+              Create PIN
             </button>
           `
         default:
@@ -1072,7 +1096,7 @@
     // EVENT HANDLING
     setupOverlayEvents() {
       // Login button
-      const confirmEncryptBtn = this.authOverlay?.querySelector('#confirm-encrypt-btn');
+      const confirmEncryptBtn = this.overlay?.querySelector('#confirm-encrypt-btn');
       if (confirmEncryptBtn) {
         confirmEncryptBtn.onclick = async () => {
           await MessageHelper.sendToBackground({
@@ -1080,12 +1104,20 @@
             sheetId: this.sheetId
           }, (res => {
             console.log(res)
-            // if (res.code === 2001) {
-            //   this.isSheetEncrypted = false
-            //   this.overlayManager.showOverlay("confirm-encrypt-sheet")
-            // } else {
-            //   this.isSheetEncrypted = true
-            // }
+          }));
+        };
+      }
+
+      //Create PIN password
+      const input = document.getElementById('pin');
+      const createPinBtn = this.overlay?.querySelector('#create-pin-btn');
+      if (createPinBtn) {
+        createPinBtn.onclick = async () => {
+          await MessageHelper.sendToBackground({
+            type: MESSAGE_TYPES.CREATE_PIN,
+            pin: input.value
+          }, (res => {
+            console.log(res)
           }));
         };
       }
@@ -1123,21 +1155,36 @@
       this.overlayManager = overlayManager;
       this.sheetId = null;
       this.isSheetEncrypted = null
+      this.doesUserHavePin = null
     }
 
-    async sendSheetIdToBackground() {
+    async getSheetInfo() {
       this.sheetId = window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
       await MessageHelper.sendToBackground({
         type: MESSAGE_TYPES.GET_SHEET_INFO,
         sheetId: this.sheetId
       }, (res => {
+        console.log(res)
         if (res.code === 2001) {
           this.isSheetEncrypted = false
-          this.overlayManager.updateContentOverlay("confirm-encrypt-sheet")
+          this.overlayManager.showOverlay("confirm-encrypt-sheet")
         } else {
           this.isSheetEncrypted = true
         }
       }));
+    }
+
+    async getUserMeInfo() {
+      await MessageHelper.sendToBackground({
+        type: MESSAGE_TYPES.GET_USER_ME_INFO
+      }, res => {
+        if (!res.encrypted_private_key && !res.public_key) {
+          this.doesUserHavePin = false
+          this.overlayManager.showOverlay("create-pin")
+        } else {
+          this.doesUserHavePin = true
+        }
+      });
     }
   }
 
@@ -1152,7 +1199,7 @@
 
   if (isAuthenticated) {
     Logger.log('ContentScript', 'User is authenticated, initializing features');
-    sheetManager.sendSheetIdToBackground()
+    // sheetManager.getSheetInfo()
     // TODO: Initialize overlay manager
   } else {
     Logger.log('ContentScript', 'User not authenticated, showing auth overlay');
@@ -1163,7 +1210,8 @@
   authGuard.onAuthChange((authenticated, user) => {
     if (authenticated) {
       Logger.log('ContentScript', `User logged in: ${user.email}`);
-      sheetManager.sendSheetIdToBackground()
+      // sheetManager.getSheetInfo()
+      sheetManager.getUserMeInfo()
       // TODO: Initialize E2EE features
     } else {
       Logger.log('ContentScript', 'User logged out');

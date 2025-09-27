@@ -16,10 +16,12 @@ const MESSAGE_TYPES = {
   READ_FROM_DRIVE: 'READ_FROM_DRIVE',
 
   // Sheets messages
-  SHEET_DETECTED: 'SHEET_DETECTED',
-  CELL_CHANGED: 'CELL_CHANGED',
+  // SHEET_DETECTED: 'SHEET_DETECTED',
+  // CELL_CHANGED: 'CELL_CHANGED',
+  GET_USER_ME_INFO: 'GET_USER_ME_INFO',
   GET_SHEET_INFO: 'GET_SHEET_INFO',
   CREATE_ENCRYPTED_SHEET: 'CREATE_ENCRYPTED_SHEET',
+  CREATE_PIN: 'CREATE_PIN',
 };
 
 const STORAGE_KEYS = {
@@ -280,8 +282,6 @@ class CryptoManager {
   }
 
   async generateAESKey() {
-    Logger.log('CryptoManager', 'Generating AES key');
-
     return await crypto.subtle.generateKey(
       { name: 'AES-GCM', length: 256 },
       true,
@@ -361,15 +361,97 @@ class CryptoManager {
     }
     return bytes.buffer;
   }
+
+  async generateSymmetricKey() {
+    const aesKey = await this.generateAESKey()
+    return await this.exportKey(aesKey)
+  }
+
+  async generateAsymmetricKeyPair() {
+    const keyPair = await crypto.subtle.generateKey(
+      {
+        name: 'RSA-OAEP',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+        hash: 'SHA-256',
+      },
+      true,
+      ['encrypt', 'decrypt']
+    );
+    const publicKey = await crypto.subtle.exportKey('spki', keyPair.publicKey);
+    const privateKey = await crypto.subtle.exportKey('pkcs8', keyPair.privateKey);
+    return {
+      publicKey: this.arrayBufferToBase64(publicKey),
+      privateKey: this.arrayBufferToBase64(privateKey),
+    };
+  }
+
+  async encryptPrivateKey(privateKeyBase64, pin) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const pinKey = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(pin),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+    const derivedKey = await crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      pinKey,
+      { name: 'AES-GCM', length: 256 },
+      true,
+      ['encrypt']
+    );
+
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const encodedPrivateKey = new TextEncoder().encode(privateKeyBase64);
+    const encryptedPrivateKey = await crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv,
+      },
+      derivedKey,
+      encodedPrivateKey
+    );
+
+    const combined = new Uint8Array(salt.length + iv.length + encryptedPrivateKey.byteLength);
+    combined.set(salt, 0);
+    combined.set(iv, salt.length);
+    combined.set(new Uint8Array(encryptedPrivateKey), salt.length + iv.length);
+    return this.arrayBufferToBase64(combined);
+  }
 }
 
 class SheetManager {
-  constructor(authManager) {
+  constructor(authManager, cryptoManager) {
     this.authManager = authManager;
+    this.cryptoManager = cryptoManager;
     this.sheetId = null;
+    this.userInfo = null;
   }
   initialize() {
     Logger.log('SheetManager', 'Initializing...');
+  }
+  async getUserMeInfo() {
+    const res = await fetch(`${BE_HOST}user/me`, {
+      method: "POST",
+      headers: {
+        'accept': `application/json`,
+        'Authorization': `Bearer ${this.authManager.beToken}`,
+        'Cookie': `access_token=${this.authManager.beToken}`,
+      }
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch user me info');
+    }
+    const resolveRes = await res.json()
+    this.userInfo = resolveRes.result;
+    return resolveRes.result
   }
   async getSheetInfo() {
     const res = await fetch(`${BE_HOST}sheet?sheet_id=${this.sheetId}`, {
@@ -389,6 +471,8 @@ class SheetManager {
   }
 
   async createEncryptedSheet(sheetId) {
+    const sheetKey = await this.cryptoManager.generateSymmetricKey()
+
     const res = await fetch(`${BE_HOST}sheet`, {
       method: "POST",
       headers: {
@@ -396,13 +480,36 @@ class SheetManager {
         'Authorization': `Bearer ${this.authManager.beToken}`,
         'Cookie': `access_token=${this.authManager.beToken}`,
       },
-      body: {
-        "encrypted_sheet_key": "U2FsdGVkX1+creator_encrypted_sheet_key",
-        "encrypted_sheet_keys": [],
+      body: JSON.stringify({
+        "encrypted_sheet_key": sheetKey,
+        // "encrypted_sheet_keys": [],
         "link": `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
-        "member_ids": []
-      }
+        // "member_ids": []```````````
+      })
     });
+    if (!res.ok) {
+      throw new Error('Failed to fetch sheet info');
+    }
+    const resolveRes = await res.json()
+    return resolveRes
+  }
+  async createPIN(pinInput) {
+    const { publicKey, privateKey } = await this.cryptoManager.generateAsymmetricKeyPair();
+    const encryptedPrivateKey = await this.cryptoManager.encryptPrivateKey(privateKey, pinInput);
+    const res = await fetch(`${BE_HOST}user/set-pin`, {
+      method: "POST",
+      headers: {
+        'accept': `application/json`,
+        'Authorization': `Bearer ${this.authManager.beToken}`,
+        'Cookie': `access_token=${this.authManager.beToken}`,
+      },
+      body: JSON.stringify({
+        "encrypted_private_key": encryptedPrivateKey,
+        "public_key": publicKey,
+        "pin": pinInput,
+      })
+    });
+
     if (!res.ok) {
       throw new Error('Failed to fetch sheet info');
     }
@@ -460,19 +567,24 @@ class MessageRouter {
           break;
 
         // Sheet messages
+        case MESSAGE_TYPES.GET_USER_ME_INFO:
+          const userMeResult = await this.sheetManager.getUserMeInfo();
+          sendResponse(userMeResult);
+          break;
         case MESSAGE_TYPES.GET_SHEET_INFO:
           this.sheetManager.sheetId = message.sheetId
-          const resolveResult = await this.sheetManager.getSheetInfo(
-            message.sheetId
-          );
+          const resolveResult = await this.sheetManager.getSheetInfo(message.sheetId);
           sendResponse(resolveResult);
+          break;
+        case MESSAGE_TYPES.CREATE_PIN:
+          console.log(message)
+          const pinResult = await this.sheetManager.createPIN(message.pin);
+          sendResponse(pinResult);
           break;
         case MESSAGE_TYPES.CREATE_ENCRYPTED_SHEET:
           console.log(message)
           this.sheetManager.sheetId = message.sheetId
-          const createdSheetResult = await this.sheetManager.createEncryptedSheet(
-            message.sheetId
-          );
+          const createdSheetResult = await this.sheetManager.createEncryptedSheet(message.sheetId);
           sendResponse(createdSheetResult);
           break;
         case MESSAGE_TYPES.SAVE_TO_DRIVE:
@@ -522,7 +634,7 @@ try {
     constructor() {
       this.authManager = new AuthManager();
       this.cryptoManager = new CryptoManager();
-      this.sheetManager = new SheetManager(this.authManager);
+      this.sheetManager = new SheetManager(this.authManager, this.cryptoManager);
       this.messageRouter = new MessageRouter(
         this.authManager,
         this.cryptoManager,
