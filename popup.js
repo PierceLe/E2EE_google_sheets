@@ -35,7 +35,6 @@ class PopupUI {
     document.getElementById('login-btn').onclick = () => this.login();
     document.getElementById('logout-btn').onclick = () => this.logout();
 
-    console.log("Popup UI init")
     // Check initial auth status
     await this.checkAuthStatus();
   }

@@ -1,10 +1,5 @@
-// import { AuthManager } from './auth-manager.js';
-// import { CryptoManager } from './crypto-manager.js';
-// // import { DriveManager } from './drive-manager.js';
-// import { MessageRouter } from './message-router.js';
-// import { Logger } from './utils.js';
-
 const MESSAGE_TYPES = {
+  TEST: 'TEST',
   // Auth messages
   CHECK_AUTH: 'CHECK_AUTH',
   LOGIN: 'LOGIN',
@@ -22,12 +17,15 @@ const MESSAGE_TYPES = {
 
   // Sheets messages
   SHEET_DETECTED: 'SHEET_DETECTED',
-  CELL_CHANGED: 'CELL_CHANGED'
+  CELL_CHANGED: 'CELL_CHANGED',
+  GET_SHEET_INFO: 'GET_SHEET_INFO',
+  CREATE_ENCRYPTED_SHEET: 'CREATE_ENCRYPTED_SHEET',
 };
 
 const STORAGE_KEYS = {
   AUTH_USER: 'authUser',
   AUTH_TOKEN: 'authToken',
+  BE_TOKEN: 'BEToken',
   SHEET_KEYS: 'sheetKeys',
   USER_PREFERENCES: 'userPrefs'
 };
@@ -41,8 +39,7 @@ const GOOGLE_APIS = {
 const manifest = chrome.runtime.getManifest();
 // Lấy client_id trong manifest
 const CLIENT_ID = manifest.oauth2.client_id;
-const REDIRECT_URI = "https://bfpbflebkfbcamehejajfikegbmpajib.chromiumapp.org/"
-
+const BE_HOST = "https://hbjb3s1m-9990.aue.devtunnels.ms/api/"
 class Logger {
   static log(component, message, data = null) {
     const timestamp = new Date().toISOString();
@@ -79,6 +76,7 @@ class AuthManager {
   constructor() {
     this.currentUser = null;
     this.authToken = null;
+    this.beToken = null;
   }
 
   async initialize() {
@@ -88,14 +86,15 @@ class AuthManager {
 
   async loadStoredAuth() {
     try {
-      const stored = await StorageHelper.get([STORAGE_KEYS.AUTH_USER, STORAGE_KEYS.AUTH_TOKEN]);
+      const stored = await StorageHelper.get([STORAGE_KEYS.AUTH_USER, STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.BE_TOKEN]);
 
-      if (stored.authUser && stored.authToken) {
+      if (stored.authUser && stored.authToken && stored.beToken) {
         const isValid = await this.verifyToken(stored.authToken);
 
         if (isValid) {
           this.currentUser = stored.authUser;
           this.authToken = stored.authToken;
+          this.beToken = stored.beToken;
           Logger.log('AuthManager', 'Auth restored from storage');
           return true;
         } else {
@@ -115,15 +114,17 @@ class AuthManager {
 
       const token = await this.getGoogleAuthToken();
       const userProfile = await this.fetchUserProfile(token);
-      const idToken = await this.getIDToken()
+      const resBE = await this.loginBE(token)
       await StorageHelper.set({
         [STORAGE_KEYS.AUTH_USER]: userProfile,
-        [STORAGE_KEYS.AUTH_TOKEN]: token
+        [STORAGE_KEYS.AUTH_TOKEN]: token,
+        [STORAGE_KEYS.BE_TOKEN]: resBE.result
       });
 
 
       this.currentUser = userProfile;
       this.authToken = token;
+      this.beToken = resBE.result;
 
       Logger.log('AuthManager', 'Login successful', userProfile.email);
       this.notifyAuthChange(true);
@@ -242,6 +243,24 @@ class AuthManager {
     });
   }
 
+  async loginBE(token) {
+    const res = await fetch(`${BE_HOST}login/google`, {
+      method: "POST",
+      headers: {
+        'accept': `application/json`,
+        'Content-Type': `application/json`,
+      },
+      body: JSON.stringify({
+        "token": token
+      })
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch user profile');
+    }
+
+    return await res.json();
+  }
+
   isAuthenticated() {
     return !!(this.currentUser && this.authToken);
   }
@@ -252,29 +271,6 @@ class AuthManager {
 
   getAuthToken() {
     return this.authToken;
-  }
-
-  getIDToken() {
-    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth` +
-      `?client_id=${encodeURIComponent(CLIENT_ID)}` +
-      `&redirect_uri=${encodeURIComponent(REDIRECT_URI)}` +
-      `&response_type=id_token` +           // trả về id_token (JWT) trực tiếp
-      `&scope=${encodeURIComponent('openid email profile')}` +
-      `&nonce=${encodeURIComponent(Math.random().toString(36).slice(2))}`;
-
-    chrome.identity.launchWebAuthFlow({ url: authUrl, interactive: true }, (redirectUrl) => {
-      if (chrome.runtime.lastError) {
-        console.error(chrome.runtime.lastError);
-        return;
-      }
-      // redirectUrl sẽ chứa fragment #id_token=... hoặc ?id_token=...
-      const m = redirectUrl.match(/[#?].*id_token=([^&]+)/);
-      if (!m) return console.error('No id_token found');
-      const idToken = decodeURIComponent(m[1]);
-      console.log('ID Token:', idToken);
-      return idToken
-    });
-
   }
 }
 
@@ -367,11 +363,58 @@ class CryptoManager {
   }
 }
 
+class SheetManager {
+  constructor(authManager) {
+    this.authManager = authManager;
+    this.sheetId = null;
+  }
+  initialize() {
+    Logger.log('SheetManager', 'Initializing...');
+  }
+  async getSheetInfo() {
+    const res = await fetch(`${BE_HOST}sheet?sheet_id=${this.sheetId}`, {
+      method: "GET",
+      headers: {
+        'accept': `application/json`,
+        'Authorization': `Bearer ${this.authManager.beToken}`,
+        'Cookie': `access_token=${this.authManager.beToken}`,
+      }
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch sheet info');
+    }
+    const resolveRes = await res.json()
+    console.log("getSheetInfo: ", resolveRes)
+    return resolveRes
+  }
+
+  async createEncryptedSheet(sheetId) {
+    const res = await fetch(`${BE_HOST}sheet`, {
+      method: "POST",
+      headers: {
+        'accept': `application/json`,
+        'Authorization': `Bearer ${this.authManager.beToken}`,
+        'Cookie': `access_token=${this.authManager.beToken}`,
+      },
+      body: {
+        "encrypted_sheet_key": "U2FsdGVkX1+creator_encrypted_sheet_key",
+        "encrypted_sheet_keys": [],
+        "link": `https://docs.google.com/spreadsheets/d/${sheetId}/edit`,
+        "member_ids": []
+      }
+    });
+    if (!res.ok) {
+      throw new Error('Failed to fetch sheet info');
+    }
+    const resolveRes = await res.json()
+    return resolveRes
+  }
+}
 class MessageRouter {
-  constructor(authManager, cryptoManager, driveManager) {
+  constructor(authManager, cryptoManager, sheetManager) {
     this.authManager = authManager;
     this.cryptoManager = cryptoManager;
-    this.driveManager = driveManager;
+    this.sheetManager = sheetManager;
     this.setupListeners();
   }
 
@@ -389,7 +432,6 @@ class MessageRouter {
       switch (message.type) {
         // Auth messages
         case MESSAGE_TYPES.CHECK_AUTH:
-          console.log("MESSAGE_TYPES.CHECK_AUTH")
           sendResponse({
             authenticated: this.authManager.isAuthenticated(),
             user: this.authManager.getCurrentUser()
@@ -417,9 +459,24 @@ class MessageRouter {
           sendResponse(decryptResult);
           break;
 
-        // Drive messages
+        // Sheet messages
+        case MESSAGE_TYPES.GET_SHEET_INFO:
+          this.sheetManager.sheetId = message.sheetId
+          const resolveResult = await this.sheetManager.getSheetInfo(
+            message.sheetId
+          );
+          sendResponse(resolveResult);
+          break;
+        case MESSAGE_TYPES.CREATE_ENCRYPTED_SHEET:
+          console.log(message)
+          this.sheetManager.sheetId = message.sheetId
+          const createdSheetResult = await this.sheetManager.createEncryptedSheet(
+            message.sheetId
+          );
+          sendResponse(createdSheetResult);
+          break;
         case MESSAGE_TYPES.SAVE_TO_DRIVE:
-          const saveResult = await this.driveManager.saveFile(
+          const saveResult = await this.sheetManager.saveFile(
             message.fileName,
             message.content
           );
@@ -427,7 +484,7 @@ class MessageRouter {
           break;
 
         case MESSAGE_TYPES.READ_FROM_DRIVE:
-          const readResult = await this.driveManager.readFile(message.fileName);
+          const readResult = await this.sheetManager.readFile(message.fileName);
           sendResponse(readResult);
           break;
 
@@ -465,11 +522,11 @@ try {
     constructor() {
       this.authManager = new AuthManager();
       this.cryptoManager = new CryptoManager();
-      // this.driveManager = new DriveManager(this.authManager);
+      this.sheetManager = new SheetManager(this.authManager);
       this.messageRouter = new MessageRouter(
         this.authManager,
         this.cryptoManager,
-        // this.driveManager
+        this.sheetManager
       );
     }
 
@@ -478,6 +535,7 @@ try {
 
       try {
         await this.authManager.initialize();
+        await this.sheetManager.initialize();
         Logger.log('BackgroundService', 'Background service ready');
       } catch (error) {
         Logger.error('BackgroundService', 'Initialization failed', error);
