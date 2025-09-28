@@ -73,11 +73,8 @@ def login_with_google(
     """
     try:
         response.delete_cookie("access_token")
-        print("1")
-        user = auth_service.login_or_create_google_user(data.token)
-        print("2")
+        user = auth_service.verify_google_access_token(data.token)
         access_token = auth_service.create_token(data={"sub": user.email})
-        print("3")
         # Set cookie
         response.set_cookie(
             key="access_token",
