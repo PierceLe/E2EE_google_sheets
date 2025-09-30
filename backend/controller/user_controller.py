@@ -90,7 +90,7 @@ async def get_me(current_user=Depends(get_current_user), user_service: UserServi
         
     Returns:
         SuccessResponse containing current user's profile
-    """
+    """  
     current_user = user_service.get_user_by_email(current_user.email)
     return SuccessResponse(result=current_user)
 
@@ -157,6 +157,9 @@ async def set_pin_and_key(
     Returns:
         SuccessResponse with updated user information
     """
+    print("hi")
+    print(current_user.user_id)
+    print(request.pin)
     user_service.create_pin(current_user.user_id, request.pin, request.public_key, request.encrypted_private_key)
     return SuccessResponse(result=current_user)
 
