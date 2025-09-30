@@ -330,7 +330,7 @@ class SheetService:
             raise AppException(ErrorCode.SHEET_NOT_FOUND)
 
         # Get creator info
-        creator = self.user_repository.get_user(sheet.creator_id)
+        creator = self.user_repository.get_user_by_id(sheet.creator_id)
 
         return SheetResponse(
             sheet_id=sheet.sheet_id,
