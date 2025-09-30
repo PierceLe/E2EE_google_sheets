@@ -1130,3 +1130,88 @@ async def update_last_accessed(
     """
     result = sheet_service.update_last_accessed(current_user.user_id, sheet_id)
     return SuccessResponse(result=result)
+
+@sheet_router.get(
+    "/by-link",
+    summary="Get Sheet by Link",
+    description="""
+    **Retrieve sheet information using Google Sheets URL**
+    
+    This endpoint allows users to access sheet details by providing
+    the Google Sheets URL instead of the internal sheet ID. This is
+    useful for:
+    
+    **Use Cases:**
+    - Direct access from Google Sheets interface
+    - Sharing sheets via Google Sheets URLs
+    - Integration with external systems using sheet URLs
+    - Quick access without needing to remember sheet IDs
+    
+    **Process:**
+    1. **URL Validation**: Verify the provided link is a valid Google Sheets URL
+    2. **Sheet Lookup**: Find the corresponding encrypted sheet record
+    3. **Access Check**: Verify current user has access to the sheet
+    4. **Data Return**: Return sheet details with user's access information
+    
+    **Security:**
+    - Only users with existing access can retrieve sheet information
+    - Access permissions are enforced same as sheet ID access
+    - Invalid or inaccessible sheets return 404 error
+    
+    **Response includes:**
+    - Sheet metadata (ID, creation date, creator)
+    - User's role and permissions
+    - Encrypted sheet key for current user
+    - Favorite status and last access time
+    """,
+    response_description="Sheet details retrieved using Google Sheets URL",
+    responses={
+        200: {
+            "description": "Sheet details retrieved successfully",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "code": 0,
+                        "message": "successfully",
+                        "result": {
+                            "sheet_id": "sheet_789",
+                            "link": "https://docs.google.com/spreadsheets/d/abc123",
+                            "creator_id": "user_123",
+                            "user_role": "editor",
+                            "is_favorite": True,
+                            "last_accessed": "2024-01-15T14:20:00Z",
+                            "encrypted_sheet_key": "U2FsdGVkX1+vupppZksvRf5pq5g5XjFRIipRkwB0K1Y96Qsv2Lm+31cmzaAILwyt"
+                        }
+                    }
+                }
+            }
+        },
+        403: {
+            "description": "Access denied - not a member of this sheet"
+        },
+        404: {
+            "description": "Sheet not found or invalid Google Sheets URL"
+        },
+        400: {
+            "description": "Invalid or malformed Google Sheets URL"
+        }
+    }
+)
+async def get_sheet_by_link(
+    link: str,
+    sheet_service: SheetService = Depends(SheetService),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get sheet details using Google Sheets URL.
+    
+    Args:
+        link: Google Sheets URL to lookup
+        sheet_service: Injected sheet service
+        current_user: Currently authenticated user
+        
+    Returns:
+        SuccessResponse containing sheet details for the provided URL
+    """
+    result = sheet_service.get_sheet_by_link(link, current_user.user_id)
+    return SuccessResponse(result=result)

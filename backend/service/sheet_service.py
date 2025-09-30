@@ -316,3 +316,30 @@ class SheetService:
         required_level = role_hierarchy.get(required_role, 0)
         
         return user_level >= required_level
+
+    def get_sheet_by_link(self, link: str, user_id: str) -> SheetResponse:
+        """Get sheet details by link for a specific user"""
+        # Find sheet by link
+        sheet = self.sheet_repository.get_sheet_by_link(link)
+        if not sheet:
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
+        
+        # Check if user has access to the sheet
+        user_sheet = self.user_sheet_repository.get_user_sheet_by_user_id_and_sheet_id(user_id, sheet.sheet_id)
+        if not user_sheet:
+            raise AppException(ErrorCode.SHEET_NOT_FOUND)
+
+        # Get creator info
+        creator = self.user_repository.get_user_by_user_id(sheet.creator_id)
+
+        return SheetResponse(
+            sheet_id=sheet.sheet_id,
+            link=sheet.link,
+            creator_id=sheet.creator_id,
+            created_at=sheet.created_at,
+            role=user_sheet.role,
+            encrypted_sheet_key=user_sheet.encrypted_sheet_key,
+            is_favorite=user_sheet.is_favorite,
+            last_accessed_at=user_sheet.last_accessed_at,
+            creator=UserResponse.fromUserModel(creator) if creator else None
+        )
