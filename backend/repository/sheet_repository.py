@@ -23,3 +23,10 @@ class SheetRepository:
         with SessionLocal() as db:  # type: Session
             row = db.query(Sheet.link).filter(Sheet.sheet_id == sheet_id).first()
             return row[0] if row else None
+
+    def get_sheet_by_link(self, link: str) -> Optional[Sheet]:
+        """
+        Return the sheet entity for a given link. None if not found.
+        """
+        with SessionLocal() as db:  # type: Session
+            return db.query(Sheet).filter(Sheet.link == link).first()

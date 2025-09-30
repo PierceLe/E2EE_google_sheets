@@ -117,7 +117,10 @@ app.add_middleware(TokenMiddleware,)
 # Add cors
 origins = [
     "chrome-extension://bfpbflebkfbcamehejajfikegbmpajib",
-    "chrome-extension://ddhlhbkabmlfkheomfnfhbcgjcaimabd"
+    "chrome-extension://ddhlhbkabmlfkheomfnfhbcgjcaimabd",
+    "localhost:3000",
+    "localhost:9990",
+    "*"   
 
 ]
 app.add_middleware(CORSMiddleware,
