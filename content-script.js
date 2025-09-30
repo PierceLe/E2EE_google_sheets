@@ -21,7 +21,6 @@
     // CELL_CHANGED: 'CELL_CHANGED',
     GET_USER_ME_INFO: 'GET_USER_ME_INFO',
     GET_SHEET_INFO: 'GET_SHEET_INFO',
-    CREATE_ENCRYPTED_SHEET: 'CREATE_ENCRYPTED_SHEET',
     CREATE_PIN: 'CREATE_PIN',
   };
 
@@ -765,7 +764,7 @@
   class OverlayManager {
     constructor() {
       this.overlay = null;
-      this.sheetId = window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+      this.sheetGoogleId = window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
     }
     showOverlay(state) {
       if (this.overlay) {
@@ -1095,18 +1094,6 @@
 
     // EVENT HANDLING
     setupOverlayEvents() {
-      // Login button
-      const confirmEncryptBtn = this.overlay?.querySelector('#confirm-encrypt-btn');
-      if (confirmEncryptBtn) {
-        confirmEncryptBtn.onclick = async () => {
-          await MessageHelper.sendToBackground({
-            type: MESSAGE_TYPES.CREATE_ENCRYPTED_SHEET,
-            sheetId: this.sheetId
-          }, (res => {
-            console.log(res)
-          }));
-        };
-      }
 
       //Create PIN password
       const input = document.getElementById('pin');
@@ -1118,6 +1105,7 @@
             pin: input.value
           }, (res => {
             console.log(res)
+            if (res.public_key) this.hideOverlay()
           }));
         };
       }
@@ -1153,21 +1141,20 @@
     constructor(authManager, overlayManager) {
       this.authManager = authManager;
       this.overlayManager = overlayManager;
-      this.sheetId = null;
+      this.sheetGoogleId = null;
       this.isSheetEncrypted = null
       this.doesUserHavePin = null
     }
 
     async getSheetInfo() {
-      this.sheetId = window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
+      this.sheetGoogleId = window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1];
       await MessageHelper.sendToBackground({
         type: MESSAGE_TYPES.GET_SHEET_INFO,
-        sheetId: this.sheetId
+        sheetGoogleId: this.sheetGoogleId
       }, (res => {
-        console.log(res)
         if (res.code === 2001) {
           this.isSheetEncrypted = false
-          this.overlayManager.showOverlay("confirm-encrypt-sheet")
+          // this.overlayManager.showOverlay("confirm-encrypt-sheet")
         } else {
           this.isSheetEncrypted = true
         }
@@ -1210,7 +1197,7 @@
   authGuard.onAuthChange((authenticated, user) => {
     if (authenticated) {
       Logger.log('ContentScript', `User logged in: ${user.email}`);
-      // sheetManager.getSheetInfo()
+      sheetManager.getSheetInfo()
       sheetManager.getUserMeInfo()
       // TODO: Initialize E2EE features
     } else {

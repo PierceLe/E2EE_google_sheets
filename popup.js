@@ -24,7 +24,6 @@
 //     window.close();
 //   });
 // });
-console.log("dsadasdsa")
 class PopupUI {
   constructor() {
     this.init();
@@ -34,6 +33,8 @@ class PopupUI {
     // Add event listeners
     document.getElementById('login-btn').onclick = () => this.login();
     document.getElementById('logout-btn').onclick = () => this.logout();
+    document.getElementById('encrypt-btn').onclick = () => this.encryptSheet();
+    document.getElementById('decrypt-btn').onclick = () => this.decryptSheet();
 
     // Check initial auth status
     await this.checkAuthStatus();
@@ -43,9 +44,7 @@ class PopupUI {
     this.showLoading();
 
     try {
-      console.log("checkAuthStatus")
       const response = await chrome.runtime.sendMessage({ type: 'CHECK_AUTH' });
-      console.log(response)
       if (response.authenticated) {
         this.showLoggedIn(response.user);
       } else {
@@ -91,6 +90,56 @@ class PopupUI {
       console.error('Logout failed:', error);
       alert('Logout failed: ' + error.message);
     }
+  }
+
+  encryptSheet() {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs[0]) {
+        const url = tabs[0].url;
+        const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (match && match[1]) {
+          const sheetGoogleId = match[1];
+          try {
+            const response = await chrome.runtime.sendMessage({
+              type: 'CREATE_ENCRYPTED_SHEET',
+              sheetGoogleId: sheetGoogleId
+            });
+            console.log(response)
+            if (response.spreadsheetId) {
+              alert('Success');
+            }
+          } catch (error) {
+            console.error('Failed: ', error);
+            alert('Failed: ' + error.message);
+          }
+        }
+      }
+    });
+  }
+
+  decryptSheet() {
+    chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
+      if (tabs[0]) {
+        const url = tabs[0].url;
+        const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        if (match && match[1]) {
+          const sheetGoogleId = match[1];
+          try {
+            const response = await chrome.runtime.sendMessage({
+              type: 'DECRYPT_SHEET',
+              sheetGoogleId: sheetGoogleId
+            });
+            console.log(response)
+            if (response) {
+              alert('Success');
+            }
+          } catch (error) {
+            console.error('Failed: ', error);
+            alert('Failed: ' + error.message);
+          }
+        }
+      }
+    });
   }
 
   showLoading() {

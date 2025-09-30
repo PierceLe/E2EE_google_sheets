@@ -10,7 +10,8 @@
     "identity"
   ],
   "host_permissions": [
-    "https://docs.google.com/*"
+    "https://docs.google.com/*",
+    "https://www.googleapis.com/*"
   ],
   "oauth2": {
     "client_id": "455306255228-fh5tsislqrki3bqpa2khvn2enjtohlem.apps.googleusercontent.com",
@@ -19,6 +20,7 @@
       "https://www.googleapis.com/auth/userinfo.profile", 
       "https://www.googleapis.com/auth/drive.file",
       "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/spreadsheets.readonly",
       "openid",
       "email",
       "profile"
