@@ -7,9 +7,6 @@ const MESSAGE_TYPES = {
   AUTH_CHANGED: 'AUTH_CHANGED',
 
   // Crypto messages
-  ENCRYPT_CELL: 'ENCRYPT_CELL',
-  DECRYPT_SHEET: 'DECRYPT_SHEET',
-  GENERATE_KEY: 'GENERATE_KEY',
 
   // Drive messages
   SAVE_TO_DRIVE: 'SAVE_TO_DRIVE',
@@ -21,6 +18,7 @@ const MESSAGE_TYPES = {
   GET_USER_ME_INFO: 'GET_USER_ME_INFO',
   GET_SHEET_INFO: 'GET_SHEET_INFO',
   CREATE_ENCRYPTED_SHEET: 'CREATE_ENCRYPTED_SHEET',
+  DECRYPT_SHEET: 'DECRYPT_SHEET',
   CREATE_PIN: 'CREATE_PIN',
 };
 
@@ -29,6 +27,8 @@ const STORAGE_KEYS = {
   AUTH_TOKEN: 'authToken',
   BE_TOKEN: 'BEToken',
   USER_INFO: 'userInfo',
+  PRIVATE_KEY: 'privateKey',
+  PUBLIC_KEY: 'publicKey',
 };
 
 const GOOGLE_APIS = {
@@ -140,12 +140,13 @@ class AuthManager {
   async logout() {
     try {
       if (this.authToken) {
-        await this.revokeToken(this.authToken);
+        await this.revokeGoogleToken(this.authToken);
       }
 
       await this.clearStoredAuth();
       this.currentUserGoogleInfo = null;
       this.authToken = null;
+      this.beToken = null;
 
       Logger.log('AuthManager', 'Logout successful');
       this.notifyAuthChange(false);
@@ -158,11 +159,27 @@ class AuthManager {
   }
 
   async getGoogleAuthToken() {
-    return new Promise((resolve, reject) => {
-      chrome.identity.getAuthToken({ interactive: false }, (oldToken) => {
-        if (oldToken) {
-          chrome.identity.removeCachedAuthToken({ token: oldToken }, () => {
-            console.log("Old token removed");
+    const { authToken } = await StorageHelper.get([STORAGE_KEYS.AUTH_TOKEN])
+    if (authToken)
+      return authToken
+    else
+      return new Promise((resolve, reject) => {
+        chrome.identity.getAuthToken({ interactive: false }, (oldToken) => {
+          if (oldToken) {
+            chrome.identity.removeCachedAuthToken({ token: oldToken }, () => {
+              chrome.identity.getAuthToken({ interactive: true }, (token) => {
+                if (chrome.runtime.lastError) {
+                  reject(new Error(chrome.runtime.lastError.message));
+                } else if (!token) {
+                  reject(new Error('No token received'));
+                } else {
+                  resolve(token);
+                }
+              });
+              // requestNewToken(resolve, reject);
+            });
+          } else {
+            // requestNewToken(resolve, reject);
             chrome.identity.getAuthToken({ interactive: true }, (token) => {
               if (chrome.runtime.lastError) {
                 reject(new Error(chrome.runtime.lastError.message));
@@ -172,34 +189,26 @@ class AuthManager {
                 resolve(token);
               }
             });
-            // requestNewToken(resolve, reject);
-          });
-        } else {
-          // requestNewToken(resolve, reject);
-          chrome.identity.getAuthToken({ interactive: true }, (token) => {
-            if (chrome.runtime.lastError) {
-              reject(new Error(chrome.runtime.lastError.message));
-            } else if (!token) {
-              reject(new Error('No token received'));
-            } else {
-              resolve(token);
-            }
-          });
-        }
-      })
-    });
+          }
+        })
+      });
   }
 
   async fetchUserGoogleInfo(token) {
-    const response = await fetch(GOOGLE_APIS.USER_INFO, {
-      headers: { 'Authorization': `Bearer ${token}` }
-    });
+    const { userGoogleInfo } = await StorageHelper.get([STORAGE_KEYS.AUTH_TOKEN])
+    if (userGoogleInfo)
+      return userGoogleInfo
+    else {
+      const response = await fetch(GOOGLE_APIS.USER_INFO, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
 
-    if (!response.ok) {
-      throw new Error('Failed to fetch user profile');
+      if (!response.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+
+      return await response.json();
     }
-
-    return await response.json();
   }
 
   async verifyToken(token) {
@@ -213,7 +222,7 @@ class AuthManager {
     }
   }
 
-  async revokeToken(token) {
+  async revokeGoogleToken(token) {
     const response = await fetch(
       `https://oauth2.googleapis.com/revoke?token=${token}`,
       { method: 'POST' }
@@ -225,7 +234,7 @@ class AuthManager {
   }
 
   async clearStoredAuth() {
-    await StorageHelper.remove([STORAGE_KEYS.USER_GOOGLE_INFO, STORAGE_KEYS.AUTH_TOKEN]);
+    await StorageHelper.remove([STORAGE_KEYS.USER_GOOGLE_INFO, STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.BE_TOKEN, STORAGE_KEYS.USER_INFO]);
   }
 
   notifyAuthChange(authenticated) {
@@ -245,33 +254,48 @@ class AuthManager {
   }
 
   async loginBE(token) {
-    const res = await fetch(`${BE_HOST}login/google`, {
-      method: "POST",
-      headers: {
-        'accept': `application/json`,
-        'Content-Type': `application/json`,
-      },
-      body: JSON.stringify({
-        "token": token
-      })
-    });
-    if (!res.ok) {
-      throw new Error('Failed to fetch user profile');
+    const { BEToken } = await StorageHelper.get([STORAGE_KEYS.BE_TOKEN])
+    if (BEToken)
+      return BEToken
+    else {
+      const res = await fetch(`${BE_HOST}login/google`, {
+        method: "POST",
+        headers: {
+          'accept': `application/json`,
+          'Content-Type': `application/json`,
+        },
+        body: JSON.stringify({
+          "token": token
+        })
+      });
+      if (!res.ok) {
+        throw new Error('Failed to fetch user profile');
+      }
+      return await res.json();
     }
-
-    return await res.json();
   }
 
-  isAuthenticated() {
-    return !!(this.currentUserGoogleInfo && this.authToken);
+  async isAuthenticated() {
+    const { authToken, BEToken } = await StorageHelper.get([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.BE_TOKEN])
+    return !!(this.authToken && this.beToken) || !!(authToken && BEToken);
   }
 
-  getCurrentUserGoogleInfo() {
-    return this.currentUserGoogleInfo;
+  async getCurrentUserGoogleInfo() {
+    const { userGoogleInfo } = await StorageHelper.get([STORAGE_KEYS.USER_GOOGLE_INFO])
+    return this.currentUserGoogleInfo || userGoogleInfo;
   }
 
-  getAuthToken() {
-    return this.authToken;
+  async getPrivateKey() {
+    const { userGoogleInfo } = await StorageHelper.get([STORAGE_KEYS.USER_GOOGLE_INFO])
+    return this.currentUserGoogleInfo || userGoogleInfo;
+  }
+
+  async getToken() {
+    const { authToken, BEToken } = await StorageHelper.get([STORAGE_KEYS.AUTH_TOKEN, STORAGE_KEYS.BE_TOKEN])
+    return {
+      authToken: authToken,
+      beToken: BEToken
+    }
   }
 }
 
@@ -294,7 +318,6 @@ class CryptoManager {
       const iv = crypto.getRandomValues(new Uint8Array(12));
       const encoder = new TextEncoder();
       const encodedData = encoder.encode(JSON.stringify(data));
-
       const encrypted = await crypto.subtle.encrypt(
         { name: 'AES-GCM', iv: iv },
         symmetricKey,
@@ -314,11 +337,8 @@ class CryptoManager {
   async decryptData(encryptedData, symmetricKeyBase64) {
     try {
       const symmetricKey = await this.importSymmetricKey(symmetricKeyBase64);
-      console.log(symmetricKey)
       const iv = this.base64ToArrayBuffer(encryptedData.iv);
-      console.log(iv)
       const data = this.base64ToArrayBuffer(encryptedData.data);
-      console.log(data)
 
       const decrypted = await crypto.subtle.decrypt(
         { name: 'AES-GCM', iv: iv },
@@ -459,12 +479,18 @@ class SheetManager {
   }
 
   async getUserMeInfo() {
+    const { userInfo } = await StorageHelper.get([STORAGE_KEYS.USER_INFO])
+    if (userInfo && (userInfo.encodedPrivateKey || userInfo.encrypted_private_key)) {
+      this.userInfo = userInfo
+      return this.userInfo
+    }
+    const { beToken } = await this.authManager.getToken()
     const res = await fetch(`${BE_HOST}user/me`, {
       method: "POST",
       headers: {
         'accept': `application/json`,
-        'Authorization': `Bearer ${this.authManager.beToken}`,
-        'Cookie': `access_token=${this.authManager.beToken}`,
+        'Authorization': `Bearer ${beToken}`,
+        'Cookie': `access_token=${beToken}`,
       }
     });
     if (!res.ok) {
@@ -483,12 +509,13 @@ class SheetManager {
   }
 
   async getSheetInfo() {
+    const { beToken } = await this.authManager.getToken()
     const res = await fetch(`${BE_HOST}sheet?sheet_id=${this.sheetGoogleId}`, {
       method: "GET",
       headers: {
         'accept': `application/json`,
-        'Authorization': `Bearer ${this.authManager.beToken}`,
-        'Cookie': `access_token=${this.authManager.beToken}`,
+        'Authorization': `Bearer ${beToken}`,
+        'Cookie': `access_token=${beToken}`,
       }
     });
     if (!res.ok) {
@@ -500,12 +527,13 @@ class SheetManager {
   }
 
   async getSheetKey() {
+    const { beToken } = await this.authManager.getToken()
     const res = await fetch(`${BE_HOST}sheet/sheet-key?sheet_id=${this.sheetGoogleId}`, {
       method: "GET",
       headers: {
         'accept': `application/json`,
-        'Authorization': `Bearer ${this.authManager.beToken}`,
-        'Cookie': `access_token=${this.authManager.beToken}`,
+        'Authorization': `Bearer ${beToken}`,
+        'Cookie': `access_token=${beToken}`,
       }
     });
     if (!res.ok) {
@@ -586,6 +614,7 @@ class SheetManager {
     let sheetKey
     const res = await this.getSheetByLink(`https://docs.google.com/spreadsheets/d/${sheetGoogleId}/edit`)
     // ZtIP6XbUC5II9NevT8joGUPPokE71+TfFdX91yh7plU=
+    const { beToken, authToken } = await this.authManager.getToken()
     if (res.code === 2001) {
       sheetKey = await this.cryptoManager.generateSymmetricKey()
       const res = await fetch(`${BE_HOST}sheet`, {
@@ -593,8 +622,8 @@ class SheetManager {
         headers: {
           'accept': `application/json`,
           "Content-Type": "application/json",
-          'Authorization': `Bearer ${this.authManager.beToken}`,
-          'Cookie': `access_token=${this.authManager.beToken}`,
+          'Authorization': `Bearer ${beToken}`,
+          'Cookie': `access_token=${beToken}`,
         },
         body: JSON.stringify({
           "encrypted_sheet_key": sheetKey,
@@ -613,39 +642,57 @@ class SheetManager {
     }
     const sheetData = await this.getSheetData(sheetGoogleId, "Sheet1!A1:Z1000")
     console.log("sheetData: ", sheetData)
-    const encryptedSheetData = await this.cryptoManager.encryptData(sheetData, sheetKey)
-    console.log("encryptedData: ", encryptedSheetData)
-    const ress = await this.updateSheetData(sheetGoogleId, "Sheet1!A1:Z1000", [[JSON.stringify(encryptedSheetData)]], this.authManager.authToken)
-    console.log(ress)
-    return ress
+    await Promise.all(sheetData.values.map(row => {
+      const encryptedRow = Promise.all(row.map(cell => {
+        const encryptedCell = this.cryptoManager.encryptData(cell, sheetKey)
+        return encryptedCell
+      }))
+      return encryptedRow
+    }))
+      .then(async (sheetDataValues) => {
+        const encryptedSheetData = {
+          ...sheetData, values: sheetDataValues.map(row => row.map(cell => JSON.stringify(cell)))
+        }
+        const ress = await this.updateSheetData(sheetGoogleId, "Sheet1!A1", encryptedSheetData.values, authToken)
+        return ress
+      })
   }
 
-  async decryptedSheet(sheetGoogleId) {
+  async decryptSheet(sheetGoogleId, tabId) {
     const encryptedSheetData = await this.getSheetData(sheetGoogleId, "Sheet1!A1:Z1000")
-    console.log("encryptedSheetData: ", encryptedSheetData)
-    let sheetKey
     const res = await this.getSheetByLink(`https://docs.google.com/spreadsheets/d/${sheetGoogleId}/edit`)
-    sheetKey = res.code === 2001 ? this.sheetInfo.encrypted_sheet_key : res.result.encrypted_sheet_key
-    console.log("Sheet key by info: ", this.sheetInfo.encrypted_sheet_key)
-    console.log("Sheet key by link: ", res.result.encrypted_sheet_key)
-    // const decryptSheetData = await this.cryptoManager.decryptData(JSON.parse(encryptedSheetData.values), "RJkGddyrBvLsmj96/NUQK5lclGjVFe6Mshc/WYM+2Qo=")
-    const decryptSheetData = await this.cryptoManager.decryptData(JSON.parse(encryptedSheetData.values), sheetKey)
-    console.log("decryptedData: ", decryptSheetData)
-    const ress = await this.updateSheetData(sheetGoogleId, "Sheet1!A1:Z1000", decryptSheetData.values, this.authManager.authToken)
-    console.log(ress)
-    return ress
+    const sheetKey = res.code === 2001 ? this.sheetInfo.encrypted_sheet_key : res.result.encrypted_sheet_key
+    await Promise.all(encryptedSheetData.values.map(row => {
+      const decryptedRow = Promise.all(row.map(cell => {
+        const decryptedCell = this.cryptoManager.decryptData(JSON.parse(cell), sheetKey)
+        return decryptedCell
+      }))
+      return decryptedRow
+    }))
+      .then(async decryptedSheetDataValues => {
+        chrome.tabs.sendMessage(tabId, { type: "SEND_DECRYPTED_DATA", data: decryptedSheetDataValues });
+        return decryptedSheetDataValues
+      })
+  }
+
+  async decryptCell(sheetGoogleId, cellData, sheetKey) {
+    // const res = await this.getSheetByLink(`https://docs.google.com/spreadsheets/d/${sheetGoogleId}/edit`)
+    // const sheetKey = res.code === 2001 ? this.sheetInfo.encrypted_sheet_key : res.result.encrypted_sheet_key
+    const decryptedCellData = await this.cryptoManager.decryptData(JSON.parse(cellData), sheetKey)
+    return decryptedCellData
   }
 
   async createPIN(pinInput) {
     const { publicKey, privateKey } = await this.cryptoManager.generateAsymmetricKeyPair();
     const encryptedPrivateKey = await this.cryptoManager.encryptPrivateKey(privateKey, pinInput);
+    const { beToken } = await this.authManager.getToken()
     const res = await fetch(`${BE_HOST}user/set-pin`, {
       method: "POST",
       headers: {
         'accept': `application/json`,
         "Content-Type": "application/json",
-        'Authorization': `Bearer ${this.authManager.beToken}`,
-        'Cookie': `access_token=${this.authManager.beToken}`,
+        'Authorization': `Bearer ${beToken}`,
+        'Cookie': `access_token=${beToken}`,
       },
       body: JSON.stringify({
         "encrypted_private_key": encryptedPrivateKey,
@@ -667,19 +714,28 @@ class SheetManager {
   }
 
   async getSheetByLink(link) {
+    if (this.sheetInfo.encrypted_sheet_key) {
+      return {
+        result: {
+          encrypted_sheet_key: this.sheetInfo.encrypted_sheet_key
+        }
+      }
+    }
+    const { BEToken } = await StorageHelper.get([STORAGE_KEYS.BE_TOKEN]);
     const res = await fetch(`${BE_HOST}sheet/by-link?link=${link}`, {
       method: "GET",
       headers: {
         'accept': `application/json`,
-        'Authorization': `Bearer ${this.authManager.beToken}`,
-        'Cookie': `access_token=${this.authManager.beToken}`,
+        'Authorization': `Bearer ${BEToken}`,
+        'Cookie': `access_token=${BEToken}`,
       }
     });
     if (!res.ok) {
-      throw new Error('Failed to fetch sheet info');
+      throw new Error('Failed to fetch sheet by link');
     }
     const resolveRes = await res.json()
     console.log("Sheet Info By Link: ", resolveRes.result)
+    this.sheetInfo.encrypted_sheet_key = resolveRes.result.encrypted_sheet_key
     return resolveRes
   }
 }
@@ -706,8 +762,9 @@ class MessageRouter {
         // Auth messages
         case MESSAGE_TYPES.CHECK_AUTH:
           sendResponse({
-            authenticated: this.authManager.isAuthenticated(),
-            user: this.authManager.getCurrentUserGoogleInfo()
+            authenticated: await this.authManager.isAuthenticated(),
+            user: await this.authManager.getCurrentUserGoogleInfo(),
+            userMe: await this.sheetManager.getUserMeInfo()
           });
           break;
 
@@ -722,14 +779,6 @@ class MessageRouter {
           break;
 
         // Crypto messages
-        case MESSAGE_TYPES.ENCRYPT_CELL:
-          const encryptResult = await this.handleEncryptCell(message.data);
-          sendResponse(encryptResult);
-          break;
-        case MESSAGE_TYPES.DECRYPT_CELL:
-          const decryptResult = await this.handleDecryptCell(message.data);
-          sendResponse(decryptResult);
-          break;
 
         // Sheet messages
         case MESSAGE_TYPES.GET_USER_ME_INFO:
@@ -741,8 +790,11 @@ class MessageRouter {
           const resolveResult = await this.sheetManager.getSheetInfo(message.sheetGoogleId);
           sendResponse(resolveResult);
           break;
+        case "GET_SHEET_BY_LINK":
+          const byLinkResult = await this.sheetManager.getSheetByLink(message.link);
+          sendResponse(byLinkResult);
+          break;
         case MESSAGE_TYPES.CREATE_PIN:
-          console.log(message)
           const pinResult = await this.sheetManager.createPIN(message.pin);
           console.log("Create PIN result: ", pinResult)
           sendResponse(pinResult);
@@ -754,8 +806,13 @@ class MessageRouter {
           break;
         case MESSAGE_TYPES.DECRYPT_SHEET:
           this.sheetManager.sheetGoogleId = message.sheetGoogleId
-          const decryptedSheetResult = await this.sheetManager.decryptedSheet(message.sheetGoogleId);
+          const decryptedSheetResult = await this.sheetManager.decryptSheet(message.sheetGoogleId, message.tabId);
           sendResponse(decryptedSheetResult);
+          break;
+        case "DECRYPT_CELL":
+          this.sheetManager.sheetGoogleId = message.sheetGoogleId
+          const decryptedCellResult = await this.sheetManager.decryptCell(message.sheetGoogleId, message.cellData, message.sheetKey);
+          sendResponse(decryptedCellResult);
           break;
         case MESSAGE_TYPES.SAVE_TO_DRIVE:
           const saveResult = await this.sheetManager.saveFile(
@@ -780,23 +837,23 @@ class MessageRouter {
     }
   }
 
-  async handleEncryptCell(data) {
-    if (!this.authManager.isAuthenticated()) {
-      throw new Error('Authentication required');
-    }
+  // async handleEncryptCell(data) {
+  //   if (!this.authManager.isAuthenticated()) {
+  //     throw new Error('Authentication required');
+  //   }
 
-    // Implementation for cell encryption
-    return { success: true, encryptedData: 'placeholder' };
-  }
+  //   // Implementation for cell encryption
+  //   return { success: true, encryptedData: 'placeholder' };
+  // }
 
-  async handleDecryptCell(data) {
-    if (!this.authManager.isAuthenticated()) {
-      throw new Error('Authentication required');
-    }
+  // async handleDecryptCell(data) {
+  //   if (!this.authManager.isAuthenticated()) {
+  //     throw new Error('Authentication required');
+  //   }
 
-    // Implementation for cell decryption
-    return { success: true, decryptedData: 'placeholder' };
-  }
+  //   // Implementation for cell decryption
+  //   return { success: true, decryptedData: 'placeholder' };
+  // }
 }
 try {
   class BackgroundService {

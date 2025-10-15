@@ -127,11 +127,12 @@ class PopupUI {
           try {
             const response = await chrome.runtime.sendMessage({
               type: 'DECRYPT_SHEET',
-              sheetGoogleId: sheetGoogleId
+              sheetGoogleId: sheetGoogleId,
+              tabId: tabs[0].id
             });
             console.log(response)
             if (response) {
-              alert('Success');
+              // alert('Success');
             }
           } catch (error) {
             console.error('Failed: ', error);

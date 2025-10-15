@@ -8,9 +8,6 @@
     AUTH_CHANGED: 'AUTH_CHANGED',
 
     // Crypto messages
-    ENCRYPT_CELL: 'ENCRYPT_CELL',
-    DECRYPT_CELL: 'DECRYPT_CELL',
-    GENERATE_KEY: 'GENERATE_KEY',
 
     // Drive messages
     SAVE_TO_DRIVE: 'SAVE_TO_DRIVE',
@@ -46,13 +43,15 @@
         const response = await MessageHelper.sendToBackground({
           type: MESSAGE_TYPES.CHECK_AUTH
         });
-
         this.isAuthenticated = response.authenticated;
         this.currentUser = response.user;
         this.retryCount = 0; // Reset on successful check
         if (this.isAuthenticated) {
           Logger.log('AuthGuard', `User authenticated: ${this.currentUser.email}`);
-          this.hideAuthRequired();
+          if (response.userMe?.encrypted_private_key) this.hideAuthRequired();
+          else {
+            Logger.log('AuthGuard', 'User authenticated but PIN required');
+          }
         } else {
           Logger.log('AuthGuard', 'User not authenticated');
         }
@@ -1144,6 +1143,9 @@
       this.sheetGoogleId = null;
       this.isSheetEncrypted = null
       this.doesUserHavePin = null
+      this.sheetData = null
+      this.sheetKey = null
+      this.setupMessageListener()
     }
 
     async getSheetInfo() {
@@ -1161,6 +1163,19 @@
       }));
     }
 
+    async getSheetByLink(link) {
+      await MessageHelper.sendToBackground({
+        type: "GET_SHEET_BY_LINK",
+        link: link
+      }, (res => {
+        if (res.code === 2001) {
+          // this.overlayManager.showOverlay("confirm-encrypt-sheet")
+        } else {
+          this.sheetKey = res.result.encrypted_sheet_key
+        }
+      }));
+    }
+
     async getUserMeInfo() {
       await MessageHelper.sendToBackground({
         type: MESSAGE_TYPES.GET_USER_ME_INFO
@@ -1170,6 +1185,30 @@
           this.overlayManager.showOverlay("create-pin")
         } else {
           this.doesUserHavePin = true
+        }
+      });
+    }
+
+    async decryptCell(cellData) {
+      const sheetGoogleId = this.sheetGoogleId || window.location.href.match(/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1]
+      if (!this.sheetKey) {
+        await sheetManager.getSheetByLink(`https://docs.google.com/spreadsheets/d/${sheetGoogleId}/edit`)
+      }
+      const cellDataDecrypted = await MessageHelper.sendToBackground({
+        type: "DECRYPT_CELL",
+        sheetGoogleId: sheetGoogleId,
+        cellData: cellData,
+        sheetKey: this.sheetKey
+      });
+      return cellDataDecrypted
+    }
+
+    // MESSAGE HANDLING
+    setupMessageListener() {
+      chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+        if (message.type === "SEND_DECRYPTED_DATA") {
+          this.isSheetEncrypted = true
+          this.sheetData = message.data
         }
       });
     }
@@ -1205,4 +1244,49 @@
       // TODO: Cleanup E2EE features
     }
   });
+
+  function debounceAsync(fn, delay) {
+    let timer;
+    return (...args) => {
+      clearTimeout(timer);
+      return new Promise((resolve) => {
+        timer = setTimeout(async () => {
+          const result = await fn(...args);
+          resolve(result);
+        }, delay);
+      });
+    };
+  }
+
+  async function handleMutations(mutations) {
+    for (const m of mutations) {
+      const node = m.target;
+      try {
+        // if node contains text starting with ENC:, set a title attribute with decoded text (preview)
+        const txt = node.innerText || node.textContent || "";
+
+        if (typeof txt === "string" && txt.startsWith(`{"iv":"`)) {
+          let decoded
+          if (sheetManager.isSheetEncrypted) {
+            const cellDataDecrypted = await sheetManager.decryptCell(txt)
+            decoded = `DECRYPTED PREVIEW: ${cellDataDecrypted}`;
+          } else {
+            decoded = `Click Encrypt Button to see raw data in this cell`
+          }
+          // add data-attr for debugging; do not modify cell content
+          node.setAttribute("data-enc-preview", decoded);
+          node.title = decoded; // user can hover to see
+        }
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  const debouncedHandleMutations = debounceAsync(handleMutations, 1000);
+
+  const observer = new MutationObserver(async (mutations) => {
+    debouncedHandleMutations(mutations);
+  });
+
+  observer.observe(document.body, { subtree: true, characterData: false, childList: true, attributes: false });
+
 })();
