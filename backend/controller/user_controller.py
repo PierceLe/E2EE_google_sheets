@@ -225,7 +225,8 @@ async def restore_private_key(
     Returns:
         SuccessResponse containing decrypted private key
     """
-    return SuccessResponse(result=user_service.restore_priave_key(current_user.user_id, request.pin))
+    return SuccessResponse(result=user_service.restore_priave_key(current_user.user_id, 
+     request.pin))
 
 @user_router.get(
     "/by-email",
