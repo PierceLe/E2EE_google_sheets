@@ -714,7 +714,7 @@ class SheetManager {
   }
 
   async getSheetByLink(link) {
-    if (this.sheetInfo.encrypted_sheet_key) {
+    if (this.sheetInfo?.encrypted_sheet_key) {
       return {
         result: {
           encrypted_sheet_key: this.sheetInfo.encrypted_sheet_key
@@ -734,8 +734,10 @@ class SheetManager {
       throw new Error('Failed to fetch sheet by link');
     }
     const resolveRes = await res.json()
-    console.log("Sheet Info By Link: ", resolveRes.result)
-    this.sheetInfo.encrypted_sheet_key = resolveRes.result.encrypted_sheet_key
+    if (resolveRes.code !== 2001) {
+      console.log("Sheet Info By Link: ", resolveRes.result)
+      this.sheetInfo.encrypted_sheet_key = resolveRes.result.encrypted_sheet_key
+    }
     return resolveRes
   }
 }
